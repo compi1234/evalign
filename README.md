@@ -16,7 +16,6 @@ The package includes:
 
 ## Installation
 
-
 >  pip install git+https://github.com/compi1234/evalign.git
 
 

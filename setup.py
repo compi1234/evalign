@@ -12,9 +12,7 @@ setup(
     license = "free",
     
     packages = find_packages(),
-
-    # a dictionary refering to required data not in .py files    
-    # include_package_data=True  
+ 
     package_data = {'evalign':['data/*']},
     
     install_requires=[
