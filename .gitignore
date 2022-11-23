@@ -1,0 +1,7 @@
+*.pyc
+.ipynb*
+*pycache*
+obsolete/
+old/
+v1/
+my_tests/

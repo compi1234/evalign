@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: evalign
+Version: 0.1
+Summary: Sequence Matching Utilities for ALIGNning and ASR EVAluation
+Home-page: UNKNOWN
+Author: Dirk Van Compernolle
+Author-email: compi@esat.kuleuven.be
+License: free
+Platform: UNKNOWN
+Classifier: Development Status: Functional, Beta
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.7
+
+UNKNOWN
+

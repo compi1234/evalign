@@ -1,0 +1,13 @@
+README.md
+setup.py
+evalign/__init__.py
+evalign/distance.py
+evalign/eval.py
+evalign/normalize.py
+evalign/utils.py
+evalign.egg-info/PKG-INFO
+evalign.egg-info/SOURCES.txt
+evalign.egg-info/dependency_links.txt
+evalign.egg-info/requires.txt
+evalign.egg-info/top_level.txt
+tests/__init__.py
