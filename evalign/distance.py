@@ -17,8 +17,10 @@ from .utils import tokenizer
 
 def levenshtein(x, y, TOKEN=None, **kwargs):
     '''
-    Finds the symmetric Levenshtein distance (sum of SUB/INS/DEL) between two strings of across a corpus 
-    of x-y pairs.    x and y position are irrelevant.
+    Finds the symmetric Levenshtein distance (sum of SUB/INS/DEL) between two strings across a corpus 
+    of x-y pairs.    
+    The strings are tokenized according to the TOKEN specification (default is string_2_list tokenization).
+    x and y position are irrelevant for the measured distance.
     There is no backtracking, and no separate tracking of SUB/INS/DEL 
     
     Note:
@@ -35,7 +37,7 @@ def levenshtein(x, y, TOKEN=None, **kwargs):
             see utils.tokenizer()
         
         **kwargs:
-            passed to levenshtein()
+            passed to levenshtein_t()
     
     Returns
    --------
@@ -46,7 +48,7 @@ def levenshtein(x, y, TOKEN=None, **kwargs):
                         'hyp_tokens' : (int) number of tokens in hypothesis (x)
                         'ref_tokens' : (int) number of tokens in reference  (y)
                         'total'      : (int) number of edits 
-                        'err'        : (float) error rate (in %)    
+                        'err'        : (float) error rate (in %)    [100*number_of_errors/length_of_reference]
     '''
     
     assert ( type(x)==type(y) ) 
@@ -225,8 +227,9 @@ def edit_distance(x, y, TOKEN=None, **kwargs):
 
 def edit_distance_t(x=None,y=None,wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", ALIGN=False, CMPND=[], VERBOSE=False):
     '''
-    Master routine for edit distance computation between a single hyp(x) and ref(y) pair.    
-    Edit Weights help in making alignments less ambiguous (by nature and code dependent in e.g. Levenshtein).  
+    Master routine for edit distance computation between a single hyp(x) and ref(y) pair, 
+    where x and y are a list of tokens (tokenized strings).   
+    Edit Weights help in making alignments less ambiguous (by nature and code dependent).
     To have a predictable answer and to minimize edit_distance and number_edits at the same time, it is recommended to set: wI,wD < wS < wI+wD
     
     Apart from the standard SUB/INS/DEL, this routine allows for optional Compounding   
@@ -549,9 +552,9 @@ def _edit_distance_trellis(hyp=[],ref=[],wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", CMPN
         print("Backtrace")        
         print(trace)
         
-    # recovering alignments as [ ( x_i, y_j, edit_ij ) ]
-    # the dummy symbol '_' is inserted for counterparts of insertions, deletions
-    #     and first element in compounds
+    # recovering alignment as [ ( x_i, y_j) ] and edit_sequence as [ edit_ij ]
+    # the dummy symbol EPS (default='_') is inserted for counterparts of insertions and deletions
+    # compounds are merged with '+' between both parts
     alignment = []
     edit_sequence = []
     for k in range(len(trace)):
