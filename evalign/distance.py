@@ -6,7 +6,7 @@ Versioning:
     
 18/02/2021: first version completed
 21/11/2022: package completely rewritten and restructured
-
+21/12/2022: add 'ignore' tokens in evaluations
     
 @author: compi
 """
@@ -225,7 +225,7 @@ def edit_distance(x, y, TOKEN=None, **kwargs):
     return( edit_dist, results)
 
 
-def edit_distance_t(x=None,y=None,wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", ALIGN=False, CMPND=[], VERBOSE=False):
+def edit_distance_t(x=None,y=None,wS=1.1,wI=1.,wD=1.,wC=.2, wG=.99, EPS="_", ALIGN=False, CMPND=[], GB=[], VERBOSE=False):
     '''
     Master routine for edit distance computation between a single hyp(x) and ref(y) pair, 
     where x and y are a list of tokens (tokenized strings).   
@@ -245,7 +245,10 @@ def edit_distance_t(x=None,y=None,wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", ALIGN=False
             
     wS, wI, wD, wC : float, default (1.1, 1.0, 1.0, 0.2)
         edit costs for Substition, Insertion, Deletion and Compound
-    
+
+    wG : float
+         relative cost for gobble matching
+         
     EPS: str, default = "_"
         Epsilon symbol in alignments
         
@@ -259,6 +262,9 @@ def edit_distance_t(x=None,y=None,wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", ALIGN=False
         most common examples or ['','-'] ie. blank and dash compounding
         if not empty the full trellis option needs to be run independent of ALIGN settings
 
+    GB : list, default = []
+        list of gobble tokens , i.e. tokens that take sequence of token substitutions
+        
     VERBOSE : boolean, default=False
         if True highly VERBOSE printing of internal results (trellis, backtrace, .. )
 
@@ -273,19 +279,22 @@ def edit_distance_t(x=None,y=None,wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", ALIGN=False
         'sub'        : (int) number of substitions 
         'ins'        : (int) number of insertions
         'del'        : (int) number of deletions
-        'comp'       : (int) number of compounds (if requested)
+        'comp'       : (int) number of compounds (optional)
+        'gobble'     : (int) number of errors that could be attributed to ignore tokens (optional)
         'edit_dist'  : (float) weighted edit distance
         'err'        : (float) error rate (in %) 
-        'align'      : (dataframe) with alignment (if requested)
+        'align'      : (dataframe) with alignment (optional)
+        'edits'      : (list) sequence of edits (optional)
                 
     '''
     
     assert type(x) == type(y) == list
         
-    COMPOUNDS = (len(CMPND) > 0)        
-    if(ALIGN | COMPOUNDS):
-        Edit_Dist, Edit_Counts, Alignment, Edits = _edit_distance_trellis(x,y,wS=wS,wI=wI,wD=wD,wC=wC,EPS=EPS,
-            CMPND=CMPND,VERBOSE=VERBOSE)
+    COMPOUNDS = (len(CMPND) > 0) 
+    GOBBLE = (len(GB) > 0)
+    if(ALIGN | COMPOUNDS | GOBBLE ):
+        Edit_Dist, Edit_Counts, Alignment, Edits = _edit_distance_trellis(x,y,wS=wS,wI=wI,wD=wD,wC=wC,wG=wG,EPS=EPS,
+            CMPND=CMPND,GB=GB,VERBOSE=VERBOSE)
     else:
         Edit_Dist, Edit_Counts  = _edit_distance_col(x,y,wS=wS,wI=wI,wD=wD,VERBOSE=VERBOSE)  
         
@@ -297,6 +306,7 @@ def edit_distance_t(x=None,y=None,wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", ALIGN=False
         results['align']=Alignment
         results['edits']=Edits
     if(COMPOUNDS): results['comp']=Edit_Counts[3]
+
     return(results)
 
 
@@ -414,7 +424,7 @@ def _column_update(xx,y,prev,wS,wI,wD):
     return new, edits
 
     
-def _edit_distance_trellis(hyp=[],ref=[],wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", CMPND=[], VERBOSE=False):
+def _edit_distance_trellis(hyp=[],ref=[],wS=1.1,wI=1.,wD=1.,wC=.2, wG=.99, EPS="_", CMPND=[], GB=[], VERBOSE=False):
     '''
     Weighted Edit Distance computation / matching
         + of a single pair of  hyp/ref examples
@@ -474,7 +484,11 @@ def _edit_distance_trellis(hyp=[],ref=[],wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", CMPN
     trellis = np.zeros((Nx+1, Ny+1),dtype='float32')
     bptr = np.zeros((Nx+1, Ny+1, 2), dtype='int32')
     edits = np.full((Nx+1, Ny+1),"Q",dtype='str')  #'Q' is just a placeholder
-     
+    if len(GB) > 0: # gobble weight initialization
+        wGS = wG*wS
+        wGI = wG*wI
+        wGD = wG*wD
+        
     for i in range(1,Nx+1):
         trellis[i, 0] = i * wI
         bptr[i,0] = [i-1,0]
@@ -511,6 +525,27 @@ def _edit_distance_trellis(hyp=[],ref=[],wS=1.1,wI=1.,wD=1.,wC=.2, EPS="_", CMPN
                 bptr[i,j] = [i,j-1]
                 edits[i,j] = 'D'
     
+            # gobbling: either y-token should be in the gobble list
+            # this is weighted by normal weights and backpointers can be any Levenshtein move
+            # hence a gobble token can absorb multiple inputs
+            if ( y[jj] in GB ) or ( x[ii] in GB ):
+                if(x[ii] == y[jj]): g1 = trellis[i-1,j-1]
+                else: gg = trellis[i-1,j-1] + wG
+                if (gg <= trellis[i,j]):
+                    trellis[i,j] = gg
+                    bptr[i,j] = [i-1,j-1]  
+                    edits[i,j] = 'G' 
+                gg = trellis[i-1,j] + wG
+                if (gg <= trellis[i,j]):
+                    trellis[i,j] = gg
+                    bptr[i,j] = [i-1,j]                  
+                    edits[i,j] = 'G' 
+                gg = trellis[i,j-1] + wG
+                if (gg <= trellis[i,j]):
+                    trellis[i,j] = gg
+                    bptr[i,j] = [i,j-1]
+                    edits[i,j] = 'G'
+                    
             # compounds:
             # In first instance compounds are marked as 'x' or 'y' depending on compounding
             # in x or y sequence.   
